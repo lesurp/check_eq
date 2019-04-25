@@ -1,0 +1,56 @@
+#!/bin/bash
+
+function get_changed_files() {
+    git --no-pager diff --name-only
+}
+
+new_version_f=$(mktemp)
+old_version_f=$(mktemp)
+patch_f=$(mktemp)
+
+formatted=()
+changed=()
+changed_patches=()
+
+while read -r file; do
+    # we copy the current file to both tmp file
+    cat $file > $new_version_f
+    cat $file > $old_version_f
+
+    # then revert the old_version_f
+    git --no-pager diff $file > $patch_f
+    patch -p1 -R $old_version_f $patch_f > /dev/null
+
+    # finally, we format both files and see if there's any difference...
+    # NOTE: sometimes multiple passes of clang-format generate
+    # a differente output (prob. conflicting settings or w/e)
+    # should we find another way to compare files?
+    clang-format -i $new_version_f
+    clang-format -i $old_version_f
+
+    diff=$(diff -u $old_version_f $new_version_f)
+
+    # there was no difference between the files
+    if [ $? -eq 0 ]
+    then
+        formatted+=($file)
+    else
+        changed+=($file)
+        changed_patches+=("$diff")
+    fi
+done <<< "$(get_changed_files)"
+
+if [ ${#formatted[@]} -ne 0 ]
+then
+    printf "\e[32mFiles that were only reformatted:\e[0m\n$formatted\n\n"
+fi
+
+if [ ${#changed[@]} -ne 0 ]
+then
+    printf "\e[33mFiles that were actually changed:\e[0m\n$changed\n\n"
+    printf "\e[34m... And the corresponding patches:\e[0m\n$changed_patches\n"
+fi
+
+rm $new_version_f
+rm $old_version_f
+rm $patch_f
