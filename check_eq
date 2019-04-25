@@ -4,6 +4,11 @@ function get_changed_files() {
     git --no-pager diff --name-only
 }
 
+print_arr() {
+    name=$1[@]
+    printf '%s\n' "${!name}"
+}
+
 new_version_f=$(mktemp)
 old_version_f=$(mktemp)
 patch_f=$(mktemp)
@@ -42,13 +47,16 @@ done <<< "$(get_changed_files)"
 
 if [ ${#formatted[@]} -ne 0 ]
 then
-    printf "\e[32mFiles that were only reformatted:\e[0m\n$formatted\n\n"
+    printf "\e[32mFiles that were only reformatted:\e[0m\n"
+    print_arr formatted
 fi
 
 if [ ${#changed[@]} -ne 0 ]
 then
-    printf "\e[33mFiles that were actually changed:\e[0m\n$changed\n\n"
-    printf "\e[34m... And the corresponding patches:\e[0m\n$changed_patches\n"
+    printf "\e[33mFiles that were actually changed:\e[0m\n"
+    print_arr changed
+    printf "\n\e[34m... And the corresponding patches:\e[0m\n"
+    print_arr changed_patches
 fi
 
 rm $new_version_f
